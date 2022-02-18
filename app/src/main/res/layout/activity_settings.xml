@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg"
+    android:focusableInTouchMode="true"
+    tools:context="com.lsinfo.maltose.ui.SettingsActivity">
+
+    <ToggleButton
+        android:id="@+id/isLocalMode"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:text="本地模式"
+        android:textOff="远程模式"
+        android:textOn="本地模式" />
+
+    <LinearLayout
+        android:id="@+id/updateLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/isLocalMode"
+        android:orientation="vertical">
+
+        <Button
+            android:id="@+id/updateLocalData"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:text="更新本地数据" />
+
+        <TextView
+            android:id="@+id/updateText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center" />
+
+    </LinearLayout>
+
+</RelativeLayout>

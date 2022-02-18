@@ -1,0 +1,258 @@
+package com.lsinfo.maltose.utils
+
+import java.nio.file.Files.isDirectory
+import java.io.File.separator
+import android.R.attr.entries
+import android.os.Build
+import android.support.annotation.RequiresApi
+import android.system.Os.mkdir
+import java.io.*
+import java.nio.charset.Charset
+import java.util.*
+import java.util.zip.ZipEntry
+import java.util.zip.ZipException
+import java.util.zip.ZipFile
+import java.util.zip.ZipOutputStream
+
+
+/**
+ * Created by G on 2018-07-05.
+ */
+object ZipUtils {
+    private val BUFF_SIZE = 1024 * 1024 // 1M Byte
+    /**
+     * 批量压缩文件（夹）
+     *
+     * @param resFileList 要压缩的文件（夹）列表
+     * @param zipFile 生成的压缩文件
+     * @throws IOException 当压缩过程出错时抛出
+     */
+    @Throws(IOException::class)
+    fun zipFiles(resFileList: Collection<File>, zipFile: File) {
+        val zipout = ZipOutputStream(BufferedOutputStream(FileOutputStream(
+                zipFile), BUFF_SIZE))
+        for (resFile in resFileList) {
+            zipFile(resFile, zipout, "")
+        }
+        zipout.close()
+    }
+
+    /**
+     * 批量压缩文件（夹）
+     *
+     * @param resFileList 要压缩的文件（夹）列表
+     * @param zipFile 生成的压缩文件
+     * @param comment 压缩文件的注释
+     * @throws IOException 当压缩过程出错时抛出
+     */
+    @Throws(IOException::class)
+    fun zipFiles(resFileList: Collection<File>, zipFile: File, comment: String) {
+        val zipout = ZipOutputStream(BufferedOutputStream(FileOutputStream(
+                zipFile), BUFF_SIZE))
+        for (resFile in resFileList) {
+            zipFile(resFile, zipout, "")
+        }
+        zipout.setComment(comment)
+        zipout.close()
+    }
+
+    /**
+     * 解压缩一个文件
+     *
+     * @param zipFile 压缩文件
+     * @param folderPath 解压缩的目标目录
+     * @throws IOException 当解压缩过程出错时抛出
+     */
+    @Throws(ZipException::class, IOException::class)
+    fun upZipFile(zipFile: File, folderPath: String) {
+        val desDir = File(folderPath)
+        if (!desDir.exists()) {
+            desDir.mkdirs()
+        }
+        val zf = ZipFile(zipFile)
+        run {
+            LoggerHandler.runLog.i("开始解压${zipFile.path}")
+            val entries = zf.entries()
+            while (entries.hasMoreElements()) {
+
+                val entry = entries.nextElement() as ZipEntry
+                val `in` = zf.getInputStream(entry)
+                var str = folderPath + File.separator + entry.name
+                //str = String(str.toByteArray(charset("8859_1")), charset("GB2312"))
+                val desFile = File(str)
+                if (!desFile.exists()) {
+                    val fileParentDir = desFile.getParentFile()
+                    if (!fileParentDir.exists()) {
+                        fileParentDir.mkdirs()
+                    }
+                    desFile.createNewFile()
+                }
+                val out = FileOutputStream(desFile)
+                val buffer = ByteArray(BUFF_SIZE)
+
+                try{
+                    var realLength = `in`.read(buffer)
+                    while (realLength > 0) {
+                        out.write(buffer, 0, realLength)
+                        realLength = `in`.read(buffer)
+                    }
+                    LoggerHandler.runLog.i("结束解压 成功 ${zipFile.path}")
+                }
+                catch (e:Exception){
+                    LoggerHandler.crashLog.e(e)
+                    LoggerHandler.runLog.i("结束解压 失败 ${zipFile.path}")
+                }
+                finally {
+                    `in`.close()
+                    out.close()
+                }
+            }
+        }
+    }
+
+    /**
+     * 解压文件名包含传入文字的文件
+     *
+     * @param zipFile 压缩文件
+     * @param folderPath 目标文件夹
+     * @param nameContains 传入的文件匹配名
+     * @throws ZipException 压缩格式有误时抛出
+     * @throws IOException IO错误时抛出
+     */
+    @Throws(ZipException::class, IOException::class)
+    fun upZipSelectedFile(zipFile: File, folderPath: String,
+                          nameContains: String): ArrayList<File> {
+        val fileList = ArrayList<File>()
+
+        val desDir = File(folderPath)
+        if (!desDir.exists()) {
+            desDir.mkdir()
+        }
+        val zf = ZipFile(zipFile)
+        run {
+            val entries = zf.entries()
+            while (entries.hasMoreElements()) {
+                val entry = entries.nextElement() as ZipEntry
+                if (entry.getName().contains(nameContains)) {
+                    val `in` = zf.getInputStream(entry)
+                    var str = folderPath + File.separator + entry.name
+                    //str = String(str.toByteArray(charset("8859_1")), charset("GB2312"))
+                    // str.getBytes("GB2312"),"8859_1" 输出
+                    // str.getBytes("8859_1"),"GB2312" 输入
+                    val desFile = File(str)
+                    if (!desFile.exists()) {
+                        val fileParentDir = desFile.getParentFile()
+                        if (!fileParentDir.exists()) {
+                            fileParentDir.mkdirs()
+                        }
+                        desFile.createNewFile()
+                    }
+                    val out = FileOutputStream(desFile)
+                    val buffer = ByteArray(BUFF_SIZE)
+                    var realLength = `in`.read(buffer)
+                    while (realLength > 0) {
+                        out.write(buffer, 0, realLength)
+                        realLength = `in`.read(buffer)
+                    }
+                    `in`.close()
+                    out.close()
+                    fileList.add(desFile)
+                }
+            }
+        }
+        return fileList
+    }
+
+    /**
+     * 获得压缩文件内文件列表
+     *
+     * @param zipFile 压缩文件
+     * @return 压缩文件内文件名称
+     * @throws ZipException 压缩文件格式有误时抛出
+     * @throws IOException 当解压缩过程出错时抛出
+     */
+    @Throws(ZipException::class, IOException::class)
+    fun getEntriesNames(zipFile: File): ArrayList<String> {
+        val entryNames = ArrayList<String>()
+        val entries = getEntriesEnumeration(zipFile)
+        while (entries.hasMoreElements()) {
+            val entry = entries.nextElement() as ZipEntry
+            entryNames.add(String(getEntryName(entry).toByteArray(charset("GB2312")), charset("8859_1")))
+        }
+        return entryNames
+    }
+
+    /**
+     * 获得压缩文件内压缩文件对象以取得其属性
+     *
+     * @param zipFile 压缩文件
+     * @return 返回一个压缩文件列表
+     * @throws ZipException 压缩文件格式有误时抛出
+     * @throws IOException IO操作有误时抛出
+     */
+    @Throws(ZipException::class, IOException::class)
+    fun getEntriesEnumeration(zipFile: File): Enumeration<*> {
+        val zf = ZipFile(zipFile)
+        return zf.entries()
+    }
+
+    /**
+     * 取得压缩文件对象的注释
+     *
+     * @param entry 压缩文件对象
+     * @return 压缩文件对象的注释
+     * @throws UnsupportedEncodingException
+     */
+    @Throws(UnsupportedEncodingException::class)
+    fun getEntryComment(entry: ZipEntry): String {
+        return String(entry.comment.toByteArray(charset("GB2312")), charset("8859_1"))
+    }
+
+    /**
+     * 取得压缩文件对象的名称
+     *
+     * @param entry 压缩文件对象
+     * @return 压缩文件对象的名称
+     * @throws UnsupportedEncodingException
+     */
+    @Throws(UnsupportedEncodingException::class)
+    fun getEntryName(entry: ZipEntry): String {
+        return String(entry.name.toByteArray(charset("GB2312")), charset("8859_1"))
+    }
+
+    /**
+     * 压缩文件
+     *
+     * @param resFile 需要压缩的文件（夹）
+     * @param zipout 压缩的目的文件
+     * @param rootpath 压缩的文件路径
+     * @throws FileNotFoundException 找不到文件时抛出
+     * @throws IOException 当压缩过程出错时抛出
+     */
+    @Throws(FileNotFoundException::class, IOException::class)
+    private fun zipFile(resFile: File, zipout: ZipOutputStream, rootpath: String) {
+        var rootpath = rootpath
+        rootpath = (rootpath + (if (rootpath.trim { it <= ' ' }.length == 0) "" else File.separator)
+                + resFile.getName())
+        rootpath = String(rootpath.toByteArray(charset("8859_1")), charset("GB2312"))
+        if (resFile.isDirectory()) {
+            val fileList = resFile.listFiles()
+            for (file in fileList) {
+                zipFile(file, zipout, rootpath)
+            }
+        } else {
+            val buffer = ByteArray(BUFF_SIZE)
+            val `in` = BufferedInputStream(FileInputStream(resFile),
+                    BUFF_SIZE)
+            zipout.putNextEntry(ZipEntry(rootpath))
+            var realLength = `in`.read(buffer)
+            while (realLength != -1) {
+                zipout.write(buffer, 0, realLength)
+                realLength = `in`.read(buffer)
+            }
+            `in`.close()
+            zipout.flush()
+            zipout.closeEntry()
+        }
+    }
+}
